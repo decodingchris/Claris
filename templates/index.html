@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>SimTalk</title>
+</head>
+
+<body>
+  <h1>SimTalk</h1>
+  <h2>Master Communication with a Voice-Based AI</h2>
+  <button onclick="record()">Record</button>
+  <button id="stop">Stop</button>
+  <script>
+    async function record() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+        const chunks = []
+        const stopButton = document.getElementById('stop');
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" })
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunks.push(e.data);
+        }
+
+        mediaRecorder.onstop = (e) => {
+          const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
+          const formData = new FormData();
+          formData.append('recording', blob, `recording.webm`);
+          const request = new XMLHttpRequest();
+          request.open('POST', '/');
+          request.send(formData);
+        }
+
+        stopButton.addEventListener('click', function () {
+          mediaRecorder.stop();
+          stream.getAudioTracks().forEach((track) => track.stop());
+        });
+
+        mediaRecorder.start()
+      } catch (err) {
+        console.log(err)
+      }
+    }
+  </script>
+</body>
+
+</html>
