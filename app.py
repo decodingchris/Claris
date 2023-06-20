@@ -11,7 +11,10 @@ from simpleaichat import AIChat
 load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+openai_model = "gpt-3.5-turbo-0613"
+
 ALLOWED_EXTENSIONS = {"webm"}
+
 prompt = f"""Please be aware that human input is being transcribed from audio and as such there may be some errors in the transcription. 
 You will attempt to account for some words being swapped with similar-sounding words or phrases.
 You must follow ALL these rules in all responses:
@@ -25,9 +28,11 @@ feedback_prompt = f"""Please be aware that human input is being transcribed from
 You will attempt to account for some words being swapped with similar-sounding words or phrases.
 Give the entrepreneur detailed feedback on their communication skills with the investor.
 """
-ai = AIChat(system=prompt, model="gpt-3.5-turbo-0613")
-ai_feedback = AIChat(system=feedback_prompt, model="gpt-3.5-turbo-0613")
-client = boto3.client("polly")
+
+ai = AIChat(system=prompt, model=openai_model)
+ai_feedback = AIChat(system=feedback_prompt, model=openai_model)
+
+polly = boto3.client("polly")
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1000 * 1000
@@ -37,13 +42,45 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-def text_to_ai(text):
-    response = "Please repeat."
+def speech_to_text(filename):
+    text = None
+    try:
+        with open(filename, "rb") as speech:
+            text = openai.Audio.transcribe("whisper-1", speech)["text"]
+    except Exception as e:
+        print("Error: speech to text - ", e)
+    return text
+
+
+def generate_ai_response(text):
+    response = None
     try:
         response = ai(text)
-    except:
-        print("Could not get response from OpenAI.")
+    except Exception as e:
+        print("Error: generate ai response - ", e)
     return response
+
+
+def text_to_speech(text):
+    speech = None
+    try:
+        speech = polly.synthesize_speech(
+            Engine="standard",
+            OutputFormat="mp3",
+            Text=text,
+            VoiceId="Joanna",
+        )["AudioStream"]
+    except Exception as e:
+        print("Error: text to speech - ", e)
+    return speech
+
+
+# Todo: Store the files in s3
+def create_temp_file(file_extension, file_content):
+    with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
+        temp_file.write(file_content)
+        temp_file_name = temp_file.name
+        return temp_file_name
 
 
 @app.route("/", methods=["GET"])
@@ -55,36 +92,17 @@ def index():
 def transcribe():
     file = request.files["recording"]
     if file and allowed_file(file.filename):
-        with tempfile.NamedTemporaryFile(
-            suffix=".webm", delete=False
-        ) as temp_record_file:
-            temp_record_file_name = temp_record_file.name
-
-        file.save(temp_record_file_name)
-
-        with open(temp_record_file_name, "rb") as audio_file:
-            transcript = openai.Audio.transcribe("whisper-1", audio_file)
-
-        os.remove(temp_record_file_name)
-
-        ai_response = text_to_ai(transcript["text"])
-
-        response = client.synthesize_speech(
-            Engine="standard",
-            OutputFormat="mp3",
-            Text=ai_response,
-            VoiceId="Joanna",
-        )
-
         try:
-            with tempfile.NamedTemporaryFile(
-                suffix=".mp3", delete=False
-            ) as temp_audio_file:
-                temp_audio_file.write(response["AudioStream"].read())
-                temp_audio_file_path = temp_audio_file.name
-
+            user_speech = create_temp_file(".webm", file.read())
+            user_transcript = speech_to_text(user_speech)
+            ai_response = generate_ai_response(user_transcript)
+            ai_speech = text_to_speech(ai_response)
+            ai_speech_formatted = create_temp_file(".mp3", ai_speech.read())
             return send_file(
-                temp_audio_file_path, mimetype="audio/mpeg", as_attachment=True
+                ai_speech_formatted, mimetype="audio/mpeg", as_attachment=True
             )
+        except Exception as e:
+            print("Error: ", e)
         finally:
-            os.remove(temp_audio_file_path)
+            os.remove(user_speech)
+            os.remove(ai_speech_formatted)
