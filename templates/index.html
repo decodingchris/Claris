@@ -11,23 +11,32 @@
   <p>For Chrome and Firefox users. Safari not supported at the moment.</p>
   <h3>Talk</h3>
   <button id="record" onclick="record()">Record</button>
-  <button id="stop">Stop</button>
+  <button id="stop">Stop recording</button>
   <h3>Listen</h3>
   <audio id="aiResponse" controls>
     <source src="" type="audio/mpeg">
     Your browser does not support the audio element.
   </audio>
-  <h3>Get Feedback (not implemented yet)</h3>
-  <p>Be careful! The current conversation will end if you get feedback.</p>
-  <button id="feedback">Feedback</button>
+  <h3>Get Feedback</h3>
+  <button id="feedback" onclick="feedback()">Feedback</button>
   <script>
+    let conversation = JSON.parse(localStorage.getItem("conversation")) || [];
+    const feedbackButton = document.getElementById('feedback');
+    const audio = document.getElementById("aiResponse");
+
+    if (conversation.length === 0) {
+      feedbackButton.disabled = true;
+    } else {
+
+    }
+
     async function record() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-
         const chunks = []
         const recordButton = document.getElementById('record');
         const stopButton = document.getElementById('stop');
+
         const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
 
         mediaRecorder.ondataavailable = (e) => {
@@ -35,6 +44,9 @@
         }
 
         mediaRecorder.onstop = async (e) => {
+          let data = [];
+
+          // transcribe
           const blob = new Blob(chunks, { type: 'audio/webm;codecs=opus' });
           const formData = new FormData();
           formData.append('recording', blob, `recording.webm`);
@@ -44,17 +56,40 @@
               body: formData
             });
             if (response.ok) {
-              const response_blob = await response.blob();
-              const audioUrl = URL.createObjectURL(response_blob);
-              const audio = document.getElementById("aiResponse");
-              audio.src = audioUrl;
-              audio.play()
+              data = await response.json();
+              console.log(data)
+              conversation.push(data[0])
+              conversation.push(data[1])
+              localStorage.setItem("conversation", JSON.stringify(conversation));
+              feedbackButton.disabled = false;
             } else {
-              // Handle the case when the response is not successful
+              console.log("Error: transcribe response not ok")
             }
           } catch (error) {
-            console.log("error");
+            console.log("Error: transcribe - ", error);
           };
+
+          // synthesize
+          if (data.length > 0) {
+            const textFormData = new FormData();
+            textFormData.append('ai_response', data[1]['ai']);
+            try {
+              const speech_response = await fetch('/synthesize', {
+                method: 'POST',
+                body: textFormData
+              });
+              if (speech_response.ok) {
+                const response_blob = await speech_response.blob();
+                const audioUrl = URL.createObjectURL(response_blob);
+                audio.src = audioUrl;
+                audio.play()
+              } else {
+                console.log("Error: synthesize response not ok")
+              }
+            } catch (error) {
+              console.log("Error: synthesize - ", error)
+            }
+          }
           recordButton.disabled = false
         }
 
@@ -65,8 +100,45 @@
 
         mediaRecorder.start()
         recordButton.disabled = true
+        audio.pause()
       } catch (err) {
         console.log(err)
+      }
+    }
+    async function feedback() {
+      // audio.pause()
+      const feedbackFormData = new FormData();
+      feedbackFormData.append('conversation', JSON.stringify(conversation))
+      try {
+        const feedback_response = await fetch('/feedback', {
+          method: 'POST',
+          body: feedbackFormData
+        });
+        if (feedback_response.ok) {
+          const feedback_x = await feedback_response.text()
+          const textFormData = new FormData();
+          textFormData.append('ai_response', feedback_x);
+          try {
+            const speech_response = await fetch('/synthesize', {
+              method: 'POST',
+              body: textFormData
+            });
+            if (speech_response.ok) {
+              const response_blob = await speech_response.blob();
+              const audioUrl = URL.createObjectURL(response_blob);
+              audio.src = audioUrl;
+              audio.play()
+            } else {
+              console.log("Error: synthesize response not ok")
+            }
+          } catch (error) {
+            console.log("Error: synthesize - ", error)
+          }
+        } else {
+          console.log("Error: feedback response not ok")
+        }
+      } catch (error) {
+        console.log("Error: feedback - ", error)
       }
     }
   </script>

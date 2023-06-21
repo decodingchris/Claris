@@ -5,7 +5,7 @@ import boto3
 import openai
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, Response
 from simpleaichat import AIChat
 
 load_dotenv()
@@ -61,6 +61,15 @@ def generate_ai_response(text):
     return response
 
 
+def generate_ai_feedback(text):
+    response = None
+    try:
+        response = ai_feedback(text)
+    except Exception as e:
+        print("Error: generate ai feedback - ", e)
+    return response
+
+
 def text_to_speech(text):
     speech = None
     try:
@@ -69,7 +78,7 @@ def text_to_speech(text):
             OutputFormat="mp3",
             Text=text,
             VoiceId="Joanna",
-        )["AudioStream"]
+        )
     except Exception as e:
         print("Error: text to speech - ", e)
     return speech
@@ -91,18 +100,39 @@ def index():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     file = request.files["recording"]
+    response = []
     if file and allowed_file(file.filename):
         try:
             user_speech = create_temp_file(".webm", file.read())
             user_transcript = speech_to_text(user_speech)
             ai_response = generate_ai_response(user_transcript)
-            ai_speech = text_to_speech(ai_response)
-            ai_speech_formatted = create_temp_file(".mp3", ai_speech.read())
-            return send_file(
-                ai_speech_formatted, mimetype="audio/mpeg", as_attachment=True
-            )
+            response.append({"user": user_transcript})
+            response.append({"ai": ai_response})
+            os.remove(user_speech)
         except Exception as e:
             print("Error: ", e)
-        finally:
-            os.remove(user_speech)
-            os.remove(ai_speech_formatted)
+    return response
+
+
+@app.route("/synthesize", methods=["POST"])
+def synthesize():
+    text = request.form["ai_response"]
+    try:
+        ai_speech = text_to_speech(text)
+        data_stream = ai_speech.get("AudioStream")
+        return data_stream
+    except Exception as e:
+        print("Error: ", e)
+
+
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    convo_array = request.form["conversation"]
+    response = []
+    try:
+        response = generate_ai_feedback(
+            f"Give feedback on the following: {convo_array}"
+        )
+    except Exception as e:
+        print("Error: ", e)
+    return response
