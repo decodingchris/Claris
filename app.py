@@ -134,7 +134,9 @@ def feedback():
     response = []
     if convo_array:
         try:
-            response = generate_ai_feedback(f"{convo_array}")
+            response = generate_ai_feedback(
+                f"Give feedback on the following conversation: {convo_array}"
+            )
         except Exception as e:
             print("Error: ", e)
     return response

@@ -1,24 +1,25 @@
-const feedbackButton = document.getElementById("feedback");
-const resetButton = document.getElementById("reset");
+const feedbackButton = document.getElementById("feedbackButton");
+const resetButton = document.getElementById("resetButton");
+const feedbackAnchor = document.getElementById("feedbackAnchor");
+const progressMessage = document.getElementById("progressMessage");
+const convoStatus = document.getElementById("convoStatus");
+
 const audio = document.getElementById("aiResponse");
-const convoStatusEl = document.getElementById("convoStatus");
-const loaderEl = document.getElementById("loader");
-const feedbackAnchor = document.getElementById("feedbackLink");
 
 let conversation = JSON.parse(localStorage.getItem("conversation")) || [];
 
-if (conversation.length === 0) {
+if (Array.isArray(conversation) && conversation.length === 0) {
   feedbackButton.disabled = true;
   resetButton.disabled = true;
-  convoStatusEl.innerText = "Empty";
+  convoStatus.innerText = "Empty";
 } else {
-  convoStatusEl.innerText = "Not Empty";
+  convoStatus.innerText = "Not Empty";
 }
 
 function reset() {
   localStorage.removeItem("conversation");
   conversation = [];
-  convoStatusEl.innerText = "Empty";
+  convoStatus.innerText = "Empty";
   feedbackButton.disabled = true;
   resetButton.disabled = true;
   console.log("Reset Pressed: ", conversation);
@@ -28,8 +29,8 @@ async function record() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const chunks = [];
-    const recordButton = document.getElementById("record");
-    const stopButton = document.getElementById("stop");
+    const recordButton = document.getElementById("recordButton");
+    const stopButton = document.getElementById("stopButton");
 
     const mediaRecorder = new MediaRecorder(stream, {
       mimeType: "audio/webm;codecs=opus",
@@ -42,7 +43,7 @@ async function record() {
     mediaRecorder.onstop = async (e) => {
       recordButton.disabled = false;
       let data = [];
-      loaderEl.innerText = "Getting response...";
+      progressMessage.innerText = "Getting response...";
 
       // transcribe
       const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
@@ -60,7 +61,7 @@ async function record() {
           localStorage.setItem("conversation", JSON.stringify(conversation));
           feedbackButton.disabled = false;
           resetButton.disabled = false;
-          convoStatusEl.innerText = "Not Empty";
+          convoStatus.innerText = "Not Empty";
         } else {
           console.log("Error: transcribe response not ok");
         }
@@ -90,7 +91,7 @@ async function record() {
           console.log("Error: synthesize - ", error);
         }
       }
-      loaderEl.innerText = "";
+      progressMessage.innerText = "";
     };
 
     stopButton.addEventListener("click", function () {
@@ -108,7 +109,7 @@ async function record() {
 
 async function feedback() {
   if (conversation.length !== 0) {
-    loaderEl.innerText = "Getting feedback...";
+    progressMessage.innerText = "Getting feedback...";
     const feedbackFormData = new FormData();
     feedbackFormData.append("conversation", JSON.stringify(conversation));
     try {
@@ -148,7 +149,6 @@ async function feedback() {
     } catch (error) {
       console.log("Error: feedback - ", error);
     }
-    loaderEl.innerText = "";
+    progressMessage.innerText = "";
   }
 }
-console.log(conversation);

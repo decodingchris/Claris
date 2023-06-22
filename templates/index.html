@@ -11,21 +11,21 @@
   <p>For Chrome and Firefox users. Safari not supported at the moment.</p>
   <p><b>Scenario:</b> You're an entrepreneur pitching your startup to an investor.</p>
   <h3>Talk</h3>
-  <button id="record" onclick="record()">Record</button>
-  <button id="stop">Stop recording</button>
+  <button id="recordButton" onclick="record()">Record</button>
+  <button id="stopButton">Stop recording</button>
   <h3>Listen</h3>
-  <p id="loader"></p>
+  <p id="progressMessage"></p>
   <audio id="aiResponse" controls>
     <source src="" type="audio/mpeg">
     Your browser does not support the audio element.
   </audio>
   <h3>Get Feedback</h3>
-  <button id="feedback" onclick="feedback()">Request Feedback</button>
-  <a id="feedbackLink"></a>
+  <button id="feedbackButton" onclick="feedback()">Request Feedback</button>
+  <a id="feedbackAnchor"></a>
   <h3>Conversation Status</h3>
   <p id="convoStatus"></p>
   <h3>Reset Conversation</h3>
-  <button id="reset" onclick="reset()">Reset</button>
+  <button id="resetButton" onclick="reset()">Reset</button>
   <script src="{{url_for('static', filename='index.js')}}"></script>
 </body>
 
