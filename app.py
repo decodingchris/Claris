@@ -129,10 +129,11 @@ def synthesize():
 def feedback():
     convo_array = request.form["conversation"]
     response = []
-    try:
-        response = generate_ai_feedback(
-            f"Give feedback on the following: {convo_array}"
-        )
-    except Exception as e:
-        print("Error: ", e)
+    if convo_array:
+        try:
+            response = generate_ai_feedback(
+                f"Give feedback on the following: {convo_array}"
+            )
+        except Exception as e:
+            print("Error: ", e)
     return response
