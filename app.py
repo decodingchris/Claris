@@ -5,7 +5,7 @@ import boto3
 import openai
 
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, Response
+from flask import Flask, render_template, request
 from simpleaichat import AIChat
 
 load_dotenv()
@@ -28,6 +28,9 @@ feedback_prompt = f"""Please be aware that human input is being transcribed from
 You will attempt to account for some words being swapped with similar-sounding words or phrases.
 Give the entrepreneur detailed feedback on their communication skills with the investor.
 """
+
+user_role = "entrepreneur"
+ai_role = "investor"
 
 ai = AIChat(system=prompt, model=openai_model)
 ai_feedback = AIChat(system=feedback_prompt, model=openai_model)
@@ -106,8 +109,8 @@ def transcribe():
             user_speech = create_temp_file(".webm", file.read())
             user_transcript = speech_to_text(user_speech)
             ai_response = generate_ai_response(user_transcript)
-            response.append({"user": user_transcript})
-            response.append({"ai": ai_response})
+            response.append({user_role: user_transcript})
+            response.append({ai_role: ai_response})
             os.remove(user_speech)
         except Exception as e:
             print("Error: ", e)
@@ -131,9 +134,7 @@ def feedback():
     response = []
     if convo_array:
         try:
-            response = generate_ai_feedback(
-                f"Give feedback on the following: {convo_array}"
-            )
+            response = generate_ai_feedback(f"{convo_array}")
         except Exception as e:
             print("Error: ", e)
     return response

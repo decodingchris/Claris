@@ -27,13 +27,14 @@
   <h3>Reset Conversation</h3>
   <button id="reset" onclick="reset()">Reset</button>
   <script>
-    let conversation = JSON.parse(localStorage.getItem("conversation")) || [];
     const feedbackButton = document.getElementById('feedback');
     const resetButton = document.getElementById('reset');
     const audio = document.getElementById("aiResponse");
     const convoStatusEl = document.getElementById('convoStatus');
     const loaderEl = document.getElementById('loader');
     const feedbackAnchor = document.getElementById('feedbackLink');
+
+    let conversation = JSON.parse(localStorage.getItem("conversation")) || [];
 
     if (conversation.length === 0) {
       feedbackButton.disabled = true;
@@ -44,10 +45,12 @@
     }
 
     function reset() {
-      localStorage.clear()
+      localStorage.removeItem("conversation")
+      conversation = []
       convoStatusEl.innerText = "Empty"
       feedbackButton.disabled = true;
       resetButton.disabled = true;
+      console.log("Reset Pressed: ", conversation);
     }
 
     async function record() {
@@ -95,7 +98,8 @@
           // synthesize
           if (data.length > 0) {
             const textFormData = new FormData();
-            textFormData.append('ai_response', data[1]['ai']);
+            const aiKey = Object.keys(data[1])[0]
+            textFormData.append('ai_response', data[1][aiKey]);
             try {
               const speech_response = await fetch('/synthesize', {
                 method: 'POST',
@@ -173,6 +177,7 @@
         loaderEl.innerText = ""
       }
     }
+    console.log(conversation);
   </script>
 </body>
 
