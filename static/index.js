@@ -1,9 +1,10 @@
 const feedbackButton = document.getElementById("feedbackButton");
 const resetButton = document.getElementById("resetButton");
 const feedbackAnchor = document.getElementById("feedbackAnchor");
-const progressMessage = document.getElementById("progressMessage");
+const errorPlaceholder = document.getElementById("errorPlaceholder");
+const progressPlaceholder = document.getElementById("progressPlaceholder");
 const convoStatus = document.getElementById("convoStatus");
-
+const errorMessage = "Oops! Something went wrong. Please try again.";
 const audio = document.getElementById("aiResponse");
 
 let conversation = JSON.parse(localStorage.getItem("conversation")) || [];
@@ -22,7 +23,6 @@ function reset() {
   convoStatus.innerText = "Empty";
   feedbackButton.disabled = true;
   resetButton.disabled = true;
-  console.log("Reset Pressed: ", conversation);
 }
 
 async function record() {
@@ -43,7 +43,7 @@ async function record() {
     mediaRecorder.onstop = async (e) => {
       recordButton.disabled = false;
       let data = [];
-      progressMessage.innerText = "Getting response...";
+      progressPlaceholder.innerText = "Getting response...";
 
       // transcribe
       const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
@@ -63,10 +63,16 @@ async function record() {
           resetButton.disabled = false;
           convoStatus.innerText = "Not Empty";
         } else {
-          console.log("Error: transcribe response not ok");
+          const transcribeError = (await response.text()).toLowerCase();
+          if (transcribeError.includes("memory")) {
+            errorPlaceholder.innerHTML =
+              "Oops! The AI's memory is full, reset the conversation to clear its memory.";
+          } else {
+            errorPlaceholder.innerHTML = errorMessage;
+          }
         }
       } catch (error) {
-        console.log("Error: transcribe - ", error);
+        errorPlaceholder.innerHTML = errorMessage;
       }
 
       // synthesize
@@ -85,13 +91,13 @@ async function record() {
             audio.src = audioUrl;
             audio.play();
           } else {
-            console.log("Error: synthesize response not ok");
+            errorPlaceholder.innerHTML = errorMessage;
           }
         } catch (error) {
-          console.log("Error: synthesize - ", error);
+          errorPlaceholder.innerHTML = errorMessage;
         }
       }
-      progressMessage.innerText = "";
+      progressPlaceholder.innerText = "";
     };
 
     stopButton.addEventListener("click", function () {
@@ -109,7 +115,9 @@ async function record() {
 
 async function feedback() {
   if (conversation.length !== 0) {
-    progressMessage.innerText = "Getting feedback...";
+    progressPlaceholder.innerText = "Getting feedback...";
+
+    // feedback
     const feedbackFormData = new FormData();
     feedbackFormData.append("conversation", JSON.stringify(conversation));
     try {
@@ -119,14 +127,25 @@ async function feedback() {
       });
       if (feedback_response.ok) {
         const feedback_data = await feedback_response.text();
-
-        const feedbackBlob = new Blob([feedback_data], { type: "text/plain" });
+        const convoMapped = conversation.map((convo) => {
+          const key = Object.keys(convo)[0];
+          const value = convo[key];
+          return `${key}: ${value}`;
+        });
+        convoMapped.unshift("Conversation:\n");
+        convoMapped.push("\nFeedback:\n\n");
+        const convoJoined = convoMapped.join("\n");
+        const detailed_feedback = convoJoined + feedback_data;
+        const feedbackBlob = new Blob([detailed_feedback], {
+          type: "text/plain",
+        });
         feedbackAnchor.href = URL.createObjectURL(feedbackBlob);
         feedbackAnchor.innerText = "Download Feedback";
         feedbackAnchor.download = "feedback.txt";
-
         const textFormData = new FormData();
         textFormData.append("ai_response", feedback_data);
+
+        // synthesize
         try {
           const speech_response = await fetch("/synthesize", {
             method: "POST",
@@ -138,17 +157,23 @@ async function feedback() {
             audio.src = audioUrl;
             audio.play();
           } else {
-            console.log("Error: synthesize response not ok");
+            errorPlaceholder.innerHTML = errorMessage;
           }
         } catch (error) {
-          console.log("Error: synthesize - ", error);
+          errorPlaceholder.innerHTML = errorMessage;
         }
       } else {
-        console.log("Error: feedback response not ok");
+        const feedbackError = (await feedback_response.text()).toLowerCase();
+        if (feedbackError.includes("memory")) {
+          errorPlaceholder.innerHTML =
+            "Oops! The AI's memory is full, reset the conversation to clear its memory.";
+        } else {
+          errorPlaceholder.innerHTML = errorMessage;
+        }
       }
     } catch (error) {
-      console.log("Error: feedback - ", error);
+      errorPlaceholder.innerHTML = errorMessage;
     }
-    progressMessage.innerText = "";
+    progressPlaceholder.innerText = "";
   }
 }

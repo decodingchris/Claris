@@ -27,13 +27,14 @@ You must follow ALL these rules in all responses:
 feedback_prompt = f"""Please be aware that human input is being transcribed from audio and as such there may be some errors in the transcription. 
 You will attempt to account for some words being swapped with similar-sounding words or phrases.
 Give the entrepreneur detailed feedback on their communication skills with the investor.
+Format the feedback in a nice way.
 """
 
 user_role = "entrepreneur"
 ai_role = "investor"
 
 ai = AIChat(system=prompt, model=openai_model)
-ai_feedback = AIChat(system=feedback_prompt, model=openai_model)
+ai_feedback = AIChat(system=feedback_prompt, model=openai_model, save_messages=False)
 
 polly = boto3.client("polly")
 
@@ -55,24 +56,6 @@ def speech_to_text(filename):
     return text
 
 
-def generate_ai_response(text):
-    response = None
-    try:
-        response = ai(text)
-    except Exception as e:
-        print("Error: generate ai response - ", e)
-    return response
-
-
-def generate_ai_feedback(text):
-    response = None
-    try:
-        response = ai_feedback(text)
-    except Exception as e:
-        print("Error: generate ai feedback - ", e)
-    return response
-
-
 def text_to_speech(text):
     speech = None
     try:
@@ -87,7 +70,6 @@ def text_to_speech(text):
     return speech
 
 
-# Todo: Store the files in s3
 def create_temp_file(file_extension, file_content):
     with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
         temp_file.write(file_content)
@@ -103,40 +85,52 @@ def index():
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     file = request.files["recording"]
-    response = []
     if file and allowed_file(file.filename):
         try:
             user_speech = create_temp_file(".webm", file.read())
             user_transcript = speech_to_text(user_speech)
-            ai_response = generate_ai_response(user_transcript)
-            response.append({user_role: user_transcript})
-            response.append({ai_role: ai_response})
+            try:
+                ai_response = ai(user_transcript)
+            except Exception as e:
+                if "context_length_exceeded" in str(e):
+                    return "AI Memory Error", 500
+                return "Internal Server Error", 500
+            messages = []
+            messages.append({user_role: user_transcript})
+            messages.append({ai_role: ai_response})
             os.remove(user_speech)
+            return messages
         except Exception as e:
             print("Error: ", e)
-    return response
+            return "Internal Server Error", 500
+    return "Bad Request", 400
 
 
 @app.route("/synthesize", methods=["POST"])
 def synthesize():
     text = request.form["ai_response"]
-    try:
-        ai_speech = text_to_speech(text)
-        data_stream = ai_speech.get("AudioStream")
-        return data_stream
-    except Exception as e:
-        print("Error: ", e)
+    if text:
+        try:
+            ai_speech = text_to_speech(text)
+            data_stream = ai_speech.get("AudioStream")
+            return data_stream
+        except Exception as e:
+            print("Error: ", e)
+            return "Internal Server Error", 500
+    return "Bad Request", 400
 
 
 @app.route("/feedback", methods=["POST"])
 def feedback():
-    convo_array = request.form["conversation"]
-    response = []
-    if convo_array:
+    convo_list = request.form["conversation"]
+    if convo_list:
         try:
-            response = generate_ai_feedback(
-                f"Give feedback on the following conversation: {convo_array}"
+            ai_response = ai_feedback(
+                f"Give feedback on the following conversation: {convo_list}"
             )
+            return ai_response
         except Exception as e:
-            print("Error: ", e)
-    return response
+            if "context_length_exceeded" in str(e):
+                return "AI Memory Error", 500
+            return "Internal Server Error", 500
+    return "Bad Request", 400
