@@ -109,7 +109,8 @@ async function record() {
     recordButton.disabled = true;
     audio.pause();
   } catch (err) {
-    console.log("Error: record - ", err);
+    errorPlaceholder.innerHTML =
+      "Microphone access denied. Please allow microphone access to use SimTalk.";
   }
 }
 

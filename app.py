@@ -94,7 +94,7 @@ def transcribe():
             except Exception as e:
                 if "context_length_exceeded" in str(e):
                     return "AI Memory Error", 500
-                return "Internal Server Error", 500
+                return "Internal Server ErŸror", 500
             messages = []
             messages.append({user_role: user_transcript})
             messages.append({ai_role: ai_response})
@@ -109,7 +109,7 @@ def transcribe():
 @app.route("/synthesize", methods=["POST"])
 def synthesize():
     text = request.form["ai_response"]
-    if text:
+    if text and isinstance(text, str):
         try:
             ai_speech = text_to_speech(text)
             data_stream = ai_speech.get("AudioStream")
@@ -122,11 +122,11 @@ def synthesize():
 
 @app.route("/feedback", methods=["POST"])
 def feedback():
-    convo_list = request.form["conversation"]
-    if convo_list:
+    convo = request.form["conversation"]
+    if convo and isinstance(convo, str):
         try:
             ai_response = ai_feedback(
-                f"Give feedback on the following conversation: {convo_list}"
+                f"Give feedback on the following conversation: {convo}"
             )
             return ai_response
         except Exception as e:
