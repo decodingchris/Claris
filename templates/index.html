@@ -2,29 +2,26 @@
 <html lang="en">
 
 <head>
-  <title>SimTalk</title>
+  <title>Claris</title>
 </head>
 
 <body>
-  <h1>SimTalk</h1>
-  <h2>Master Communication with a Voice-Based AI</h2>
+  <h1>Claris</h1>
+  <h2>Talk through things, and get clarity.</h2>
   <p>For Chrome and Firefox users. Safari not supported at the moment.</p>
-  <p><b>Scenario:</b> You're an entrepreneur pitching your startup to an investor.</p>
   <p id="errorPlaceholder"></p>
   <h3>Talk</h3>
   <button id="recordButton" onclick="record()">Record</button>
   <button id="stopButton">Stop recording</button>
   <h3>Listen</h3>
   <p id="progressPlaceholder"></p>
-  <audio id="aiResponse" controls>
+  <audio id="clarisResponse" controls>
     <source src="" type="audio/mpeg">
     Your browser does not support the audio element.
   </audio>
-  <h3>Get Feedback</h3>
-  <button id="feedbackButton" onclick="feedback()">Request Feedback</button>
-  <a id="feedbackAnchor"></a>
-  <h3>Conversation Status</h3>
-  <p id="convoStatus"></p>
+  <h3>Download Conversation</h3>
+  <p id="downloadPlaceholder"></p>
+  <a id="downloadAnchor"></a>
   <h3>Reset Conversation</h3>
   <button id="resetButton" onclick="reset()">Reset</button>
   <script src="{{url_for('static', filename='index.js')}}"></script>

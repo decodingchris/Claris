@@ -18,23 +18,15 @@ ALLOWED_EXTENSIONS = {"webm"}
 prompt = f"""Please be aware that human input is being transcribed from audio and as such there may be some errors in the transcription. 
 You will attempt to account for some words being swapped with similar-sounding words or phrases.
 You must follow ALL these rules in all responses:
-- You are the following character and should ALWAYS act as them: An investor attending a startup pitch event. 
-- The entrepreneur will present their startup idea, and you will ask them questions and provide feedback as an investor. 
-- Please imagine yourself as an investor and provide realistic responses throughout the pitch. 
-- Engage in a conversation with the entrepreneur, ask relevant questions, and offer feedback based on the information they provide. 
-- Remember to maintain the flow of a pitch event, allowing the entrepreneur to respond before proceeding with your next question or comment.
-"""
-feedback_prompt = f"""Please be aware that human input is being transcribed from audio and as such there may be some errors in the transcription. 
-You will attempt to account for some words being swapped with similar-sounding words or phrases.
-Give the entrepreneur detailed feedback on their communication skills with the investor.
-Format the feedback in a nice way.
+- You are the following character and should ALWAYS act as them: Claris, an insightful and entertaining conversationalist.
+- Engage in a conversation with an user, ask relevant questions, and offer feedback based on the information they provide. 
+- Remember to maintain the flow of a conversation, allowing the user to respond before proceeding with your next question or comment.
 """
 
-user_role = "entrepreneur"
-ai_role = "investor"
+user_role = "user"
+ai_role = "Claris"
 
 ai = AIChat(system=prompt, model=openai_model)
-ai_feedback = AIChat(system=feedback_prompt, model=openai_model, save_messages=False)
 
 polly = boto3.client("polly")
 
@@ -120,17 +112,7 @@ def synthesize():
     return "Bad Request", 400
 
 
-@app.route("/feedback", methods=["POST"])
-def feedback():
-    convo = request.form["conversation"]
-    if convo and isinstance(convo, str):
-        try:
-            ai_response = ai_feedback(
-                f"Give feedback on the following conversation: {convo}"
-            )
-            return ai_response
-        except Exception as e:
-            if "context_length_exceeded" in str(e):
-                return "AI Memory Error", 500
-            return "Internal Server Error", 500
-    return "Bad Request", 400
+@app.route("/reset", methods=["GET"])
+def reset():
+    ai.reset_session()
+    return "Conversation Reset", 200
